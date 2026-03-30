@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Habit Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#faf3eb;--bg2:#f5ead8;--bg3:#eedcc6;--card:#fff;--card2:#f7f0e5;
+--accent:#e8772e;--accent2:#f59e4b;--accent-light:rgba(232,119,46,.12);
+--positive:#e8772e;--positive2:#d4692a;
+--negative:#c0392b;--negative2:#e74c3c;
+--text:#3d2c1e;--text2:#9a8577;--text3:#c4b5a5;
+--success:#27ae60;--warning:#f39c12;
+--radius:16px;--shadow:0 2px 12px rgba(61,44,30,.08);
+--toggle-off:#ddd0c0;
+}
+@media(prefers-color-scheme:dark){
+:root{
+--bg:#2a2520;--bg2:#332e28;--bg3:#3d3630;--card:#3d3630;--card2:#4a423a;
+--accent:#e8772e;--accent2:#f59e4b;--accent-light:rgba(232,119,46,.18);
+--positive:#e8772e;--positive2:#d4692a;
+--negative:#c0392b;--negative2:#e74c3c;
+--text:#f0e8df;--text2:#a89888;--text3:#6b5e52;
+--success:#27ae60;--warning:#f39c12;
+--shadow:0 2px 12px rgba(0,0,0,.25);
+--toggle-off:#5a5048;
+}
+}
+html,body{height:100%;font-family:'Lora',serif;background:var(--bg);color:var(--text);overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height:100dvh}
+
+.header{padding:16px 20px 8px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;background:var(--bg)}
+.header h1{font-size:1.4rem;font-weight:500;color:var(--accent)}
+.header-date{font-size:.85rem;color:var(--text2);display:flex;align-items:center;gap:6px}
+.header-date button{background:none;border:none;color:var(--text2);font-size:1.2rem;cursor:pointer;padding:4px 8px;border-radius:8px;transition:.2s;font-weight:500}
+.header-date button:active{background:var(--accent-light)}
+.main{flex:1;padding:0 16px 100px;overflow-y:auto}
+
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:flex;background:var(--bg);padding:8px 12px 12px;gap:6px;z-index:100;border-top:1px solid var(--bg3)}
+.nav button{flex:1;border:none;background:var(--card);color:var(--text2);font-size:.7rem;font-family:inherit;padding:10px 4px 8px;border-radius:14px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;transition:.2s;font-weight:400}
+.nav button .nav-icon{display:flex;align-items:center;justify-content:center}
+.nav button .nav-icon svg{width:20px;height:20px}
+.nav button.active{background:var(--accent);color:#fff}
+.nav button:active{transform:scale(.95)}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Welcome card */
+.welcome-card{background:linear-gradient(135deg,var(--accent-light),transparent);border-radius:var(--radius);padding:16px 20px;margin-bottom:12px;animation:fadeIn .3s ease}
+.welcome-quote{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:1rem;line-height:1.6;color:var(--text)}
+.welcome-author{font-size:.8rem;font-style:normal;font-weight:500;color:var(--text2);display:block;margin-top:4px}
+
+/* Yesterday banner */
+.yesterday-banner{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--radius);margin-bottom:12px;background:rgba(243,156,18,.1);border:1px solid rgba(243,156,18,.25);animation:fadeIn .3s ease}
+.yesterday-banner svg{width:16px;height:16px;color:var(--warning);flex-shrink:0}
+.yesterday-banner .yb-text{flex:1;font-size:.82rem;color:var(--text2)}
+.yesterday-banner .yb-btn{border:none;background:var(--warning);color:#fff;padding:6px 14px;border-radius:10px;font-size:.78rem;font-weight:500;font-family:inherit;cursor:pointer;white-space:nowrap;transition:.2s}
+.yesterday-banner .yb-btn:active{transform:scale(.95)}
+
+/* Icon styling */
+.habit-icon{width:36px;height:36px;min-width:36px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:var(--accent-light);color:var(--accent)}
+.habit-icon svg{width:20px;height:20px}
+.habit-item.negative .habit-icon{background:rgba(192,57,43,.1);color:var(--negative)}
+
+/* Habit item */
+.habit-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border-radius:var(--radius);margin-bottom:10px;box-shadow:var(--shadow);animation:fadeIn .3s ease;position:relative;overflow:hidden}
+.habit-item.completed{background:linear-gradient(135deg,rgba(232,119,46,.08),rgba(245,158,75,.05))}
+.habit-item.completed.negative{background:linear-gradient(135deg,rgba(192,57,43,.08),rgba(231,76,60,.05))}
+.habit-item .info{flex:1;min-width:0}
+.habit-item .name-row{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.habit-item .name{font-weight:500;font-size:.95rem}
+.habit-item .note-toggle{background:none;border:none;color:var(--text3);cursor:pointer;padding:2px;display:flex;align-items:center;transition:.2s}
+.habit-item .note-toggle:hover,.habit-item .note-toggle.has-note{color:var(--accent)}
+.habit-item .note-toggle svg{width:14px;height:14px}
+.habit-item .streak{font-size:.75rem;color:var(--text2)}
+.habit-item .ctrl-wrap{display:flex;align-items:center;padding-top:4px}
+
+/* Note textarea */
+.habit-note{width:100%;margin-top:8px;padding:8px 10px;border-radius:10px;border:1.5px solid var(--bg3);background:var(--bg);color:var(--text);font-family:inherit;font-size:.8rem;resize:vertical;min-height:36px;max-height:120px;outline:none;transition:.2s}
+.habit-note:focus{border-color:var(--accent)}
+.habit-note::placeholder{color:var(--text3)}
+
+/* Toggle */
+.toggle{width:56px;height:32px;border-radius:16px;border:none;background:var(--toggle-off);cursor:pointer;position:relative;transition:.3s;flex-shrink:0}
+.toggle::after{content:'';position:absolute;width:26px;height:26px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.3s;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.toggle.on{background:var(--positive)}
+.toggle.on::after{left:27px}
+.toggle.neg.on{background:var(--negative)}
+
+/* Rating */
+.rating{display:flex;gap:4px;margin-top:6px}
+.rating button{width:36px;height:36px;border-radius:10px;border:none;background:var(--card2);color:var(--text2);font-size:.85rem;font-weight:500;cursor:pointer;transition:.2s;font-family:inherit}
+.rating button.active{background:var(--positive);color:#fff;transform:scale(1.1)}
+.rating button.active.neg{background:var(--negative)}
+
+/* Score card */
+.score-card{text-align:center;padding:24px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);color:#fff}
+.score-card .score{font-size:3rem;font-weight:500}
+.score-card .label{font-size:.85rem;margin-top:4px;opacity:.85}
+
+/* Section title */
+.section-title{font-size:.8rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin:20px 0 10px;font-weight:500;display:flex;align-items:center;gap:6px}
+.section-title svg{width:14px;height:14px}
+
+/* Heat map */
+.heatmap-container{background:var(--card);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.heatmap-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.heatmap-header .hm-icon{display:flex;align-items:center;color:var(--accent)}
+.heatmap-header .hm-icon svg{width:18px;height:18px}
+.heatmap-header .name{font-weight:500;font-size:.9rem;flex:1}
+.heatmap-header .avg{font-size:.75rem;color:var(--text2);font-weight:400}
+.heatmap{display:grid;gap:3px;grid-template-columns:repeat(7,1fr)}
+.heatmap-cell{aspect-ratio:1;border-radius:4px;background:var(--bg2);position:relative;display:flex;align-items:center;justify-content:center;font-size:.5rem;color:var(--text3);transition:.2s;font-weight:400}
+.heatmap-cell.empty{background:transparent}
+.heatmap-cell.l1{background:#f5d6b8;color:#b87a3d}
+.heatmap-cell.l2{background:#f0b88a;color:#9a6530}
+.heatmap-cell.l3{background:#e8972e;color:#fff}
+.heatmap-cell.l4{background:#d4782a;color:#fff}
+.heatmap-cell.l5{background:#b85e1a;color:#fff}
+.heatmap-cell.neg-l1{background:#f5c6c0;color:#a03028}
+.heatmap-cell.neg-l2{background:#e89a90;color:#802520}
+.heatmap-cell.neg-l3{background:#d46050;color:#fff}
+.heatmap-cell.neg-l4{background:#c03828;color:#fff}
+.heatmap-cell.neg-l5{background:#982820;color:#fff}
+.heatmap-cell.today{outline:2px solid var(--accent);outline-offset:0px;border-radius:4px}
+.heatmap-day-labels{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px}
+.heatmap-day-label{font-size:.6rem;color:var(--text2);text-align:center;padding:2px 0;font-weight:400}
+
+@media(prefers-color-scheme:dark){
+.heatmap-cell{background:var(--bg2)}
+.heatmap-cell.l1{background:#4a3520;color:#e8a060}
+.heatmap-cell.l2{background:#6a4828;color:#f0c080}
+.heatmap-cell.l3{background:#8a5a28;color:#fff}
+.heatmap-cell.l4{background:#b87020;color:#fff}
+.heatmap-cell.l5{background:#e88828;color:#fff}
+.heatmap-cell.neg-l1{background:#4a2520;color:#e08070}
+.heatmap-cell.neg-l2{background:#6a3028;color:#f0a090}
+.heatmap-cell.neg-l3{background:#8a3828;color:#fff}
+.heatmap-cell.neg-l4{background:#b04030;color:#fff}
+.heatmap-cell.neg-l5{background:#d04838;color:#fff}
+}
+
+/* Filter pills */
+.filter-bar{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+.filter-bar::-webkit-scrollbar{display:none}
+.filter-pill{white-space:nowrap;padding:8px 14px;border-radius:20px;border:none;background:var(--card);color:var(--text2);font-size:.78rem;font-weight:400;cursor:pointer;font-family:inherit;transition:.2s;box-shadow:var(--shadow);flex-shrink:0;display:inline-flex;align-items:center;gap:5px}
+.filter-pill svg{width:14px;height:14px}
+.filter-pill.active{background:var(--accent);color:#fff}
+.filter-pill:active{transform:scale(.95)}
+
+/* Add habit */
+.add-form{padding:16px;background:var(--card);border-radius:var(--radius);margin-bottom:12px;box-shadow:var(--shadow)}
+.add-form input,.add-form select{width:100%;padding:12px 14px;border-radius:12px;border:2px solid var(--bg3);background:var(--bg);color:var(--text);font-size:.9rem;font-family:inherit;margin-bottom:10px;outline:none;transition:.2s}
+.add-form input:focus,.add-form select:focus{border-color:var(--accent)}
+.add-form select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239a8577' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:14px;border:none;font-size:.9rem;font-weight:500;font-family:inherit;cursor:pointer;transition:.2s;min-height:48px}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;width:100%}
+.btn-secondary{background:var(--card2);color:var(--text);width:100%}
+.btn-danger{background:rgba(192,57,43,.12);color:var(--negative);font-size:.8rem;padding:8px 14px;min-height:36px}
+.btn-small{padding:8px 16px;font-size:.8rem;min-height:40px;border-radius:10px}
+
+/* Icon picker */
+.icon-pick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.icon-pick button{width:42px;height:42px;border-radius:10px;border:2px solid transparent;background:var(--bg);display:flex;align-items:center;justify-content:center;color:var(--text2);cursor:pointer;transition:.2s}
+.icon-pick button svg{width:20px;height:20px}
+.icon-pick button.active{border-color:var(--accent);background:var(--accent-light);color:var(--accent)}
+.icon-pick button:active{transform:scale(.9)}
+
+/* Settings / manage habits */
+.habit-manage{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border-radius:14px;margin-bottom:8px;animation:fadeIn .3s ease;box-shadow:var(--shadow)}
+.habit-manage .manage-icon{width:32px;height:32px;min-width:32px;display:flex;align-items:center;justify-content:center;color:var(--accent)}
+.habit-manage .manage-icon svg{width:20px;height:20px}
+.habit-manage .info{flex:1}
+.habit-manage .name{font-weight:500;font-size:.9rem}
+.habit-manage .meta{font-size:.7rem;color:var(--text2)}
+
+/* Backup section */
+.backup-section{margin-top:8px;display:flex;gap:10px}
+.backup-section .btn{flex:1;font-size:.82rem;padding:10px 12px;min-height:44px}
+
+/* Stat card */
+.stat-row{display:flex;gap:12px;margin-bottom:12px}
+.stat-box{flex:1;background:var(--card);border-radius:var(--radius);padding:16px;text-align:center;box-shadow:var(--shadow)}
+.stat-box .val{font-size:1.6rem;font-weight:500}
+.stat-box .lbl{font-size:.7rem;color:var(--text2);margin-top:4px;font-weight:400}
+
+/* Streak / avg badge */
+.streak-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:.7rem;font-weight:500}
+.streak-badge svg{width:12px;height:12px}
+.streak-badge.fire{background:rgba(243,156,18,.15);color:var(--warning)}
+.streak-badge.avg{background:var(--accent-light);color:var(--accent)}
+
+/* Tabs */
+.stat-tabs{display:flex;gap:6px;margin-bottom:16px}
+.stat-tabs button{flex:1;padding:10px;border-radius:12px;border:none;background:var(--card);color:var(--text2);font-size:.8rem;font-weight:500;cursor:pointer;font-family:inherit;transition:.2s;box-shadow:var(--shadow)}
+.stat-tabs button.active{background:var(--accent);color:#fff}
+
+/* Confirm dialog */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .2s}
+.dialog{background:var(--card);border-radius:var(--radius);padding:24px;max-width:320px;width:100%;text-align:center;box-shadow:var(--shadow)}
+.dialog h3{margin-bottom:8px;font-size:1.1rem}
+.dialog p{color:var(--text2);font-size:.85rem;margin-bottom:20px}
+.dialog-btns{display:flex;gap:10px}
+.dialog-btns button{flex:1}
+
+.hidden{display:none!important}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Habit Tracker</h1>
+  <div class="header-date">
+    <button id="prevDay"><i data-lucide="chevron-left"></i></button>
+    <span id="dateLabel"></span>
+    <button id="nextDay"><i data-lucide="chevron-right"></i></button>
+  </div>
+</div>
+
+<div class="main" id="mainContent"></div>
+
+<input type="file" id="importFile" accept=".json" style="display:none">
+
+<nav class="nav">
+  <button data-page="today" class="active"><span class="nav-icon"><i data-lucide="clipboard-list"></i></span>Dnes</button>
+  <button data-page="stats"><span class="nav-icon"><i data-lucide="bar-chart-3"></i></span>Statistiky</button>
+  <button data-page="manage"><span class="nav-icon"><i data-lucide="settings"></i></span>Návyky</button>
+</nav>
+
+<script>
+(function(){
+'use strict';
+
+const ICONS = [
+  'moon','apple','activity','book-open','palette','leaf','smile',
+  'smartphone','eye-off','dumbbell','brain','droplets','target',
+  'pen-tool','music','sparkles','wine','gamepad-2','utensils','coffee'
+];
+
+const ICON_LABELS = {
+  'moon':'Spánek','apple':'Výživa','activity':'Pohyb','book-open':'Četba',
+  'palette':'Kreativita','leaf':'Klid','smile':'Nálada','smartphone':'Mobil',
+  'eye-off':'Obsah','dumbbell':'Síla','brain':'Mozek','droplets':'Voda',
+  'target':'Cíl','pen-tool':'Psaní','music':'Hudba','sparkles':'Úklid',
+  'wine':'Alkohol','gamepad-2':'Hry','utensils':'Jídlo','coffee':'Káva'
+};
+
+const QUOTES = [
+  "Nejlepší čas zasadit strom byl před dvaceti lety. Druhý nejlepší čas je teď. — čínské přísloví",
+  "Nejsi produkt svého prostředí — jsi produkt svých rozhodnutí. — Stephen Covey",
+  "Malé skutky, prováděné každý den, jsou více než velké plány, které zůstávají jen plány. — Mother Teresa",
+  "Disciplína je most mezi cílem a jeho dosažením. — Jim Rohn",
+  "Nemusíš být skvělý, abys začal. Ale musíš začít, abys byl skvělý. — Zig Ziglar",
+  "Péče o svou mysl, tělo a duši tě udržuje v rovnováze — to je základ všeho ostatního. — Jack Canfield",
+  "Změna nenastane, pokud čekáš na správný okamžik. Okamžik jsi ty. — Barack Obama",
+  "Co děláš každý den je důležitější než to, co děláš občas. — Gretchen Rubin",
+  "Zdraví není vše — ale bez zdraví je vše ničím. — Arthur Schopenhauer",
+  "Starej se o své tělo. Je to jediné místo, kde musíš žít. — Jim Rohn",
+  "Úspěch není finální, neúspěch není osudný — důležitá je odvaha pokračovat. — Winston Churchill",
+  "Největší sláva nespočívá v tom, že nikdy nepadneme, ale v tom, že pokaždé vstaneme. — Konfucius",
+  "Život není o nalezení sebe sama. Život je o vytvoření sebe sama. — George Bernard Shaw",
+  "Investice do znalostí přináší vždy nejvyšší úroky. — Benjamin Franklin",
+  "Buď změnou, kterou chceš vidět ve světě. — Mahatma Gandhi",
+  "Jediný způsob, jak dělat skvělou práci, je milovat to, co děláš. — Steve Jobs",
+  "Tvůj čas je omezený — neztrácej ho žitím cizího života. — Steve Jobs",
+  "Bolest je dočasná. Vzdát se je navždy. — Lance Armstrong",
+  "Síla nespočívá ve fyzické kapacitě. Spočívá v nepoddajné vůli. — Mahatma Gandhi",
+  "Každý mistr byl kdysi začátečníkem. — Robin Sharma",
+  "Lidé jsou tak šťastní, jak si ve své mysli dovolí být. — Abraham Lincoln",
+  "Nikdy se nevzdávej čehosi, na čem ti záleží každý den. — Paulo Coelho",
+  "Tělo dosáhne toho, co mysl uvěří. — Jim Rohn",
+  "Motivace tě rozběhne. Návyk tě udrží v pohybu. — Jim Ryun",
+  "Nejdůležitější věc je začít, i když to bude jen malý krok. — Mark Twain",
+  "Dobré návyky jsou obtížné budovat, ale snadné s nimi žít. Špatné návyky jsou snadné budovat, ale obtížné s nimi žít. — Brian Tracy",
+  "Každý den je nová příležitost změnit svůj život.",
+  "Pečuj o minuty a hodiny se postarají samy o sebe. — Philip Stanhope",
+  "Dělej každý den něco, čeho se bojíš. — Eleanor Roosevelt",
+  "Pohyb je lékem na všechno. — Hippokrates",
+  "Kvalita tvého života je kvalitou tvých návyků. — Robin Sharma",
+  "Mudrci nehledají potěšení — hledají absenci bolesti. — Aristoteles",
+  "Tvůj mozek je tvůj nejcennější orgán — pečuj o něj každý den. — Jim Kwik",
+  "Nejlepší projekt, na kterém kdy budeš pracovat, jsi ty sám.",
+  "Štěstí není cíl, je to způsob cestování. — Margaret Lee Runbeck",
+  "Opakování je matkou dovednosti. — Tony Robbins",
+  "Vítěz je jen poraženec, který zkusil ještě jednou. — George M. Moore Jr.",
+  "Naše tělo je odrazem naší mysli.",
+  "Sebedisciplína je sebeláska. — Will Smith",
+  "Vzdělání není příprava na život — vzdělání je život sám. — John Dewey",
+  "Spokojený člověk s málem je bohatší než nespokojený s vším. — Sokrates",
+  "Buď trpělivý se sebou. Seberozvoj je delikátní práce.",
+  "Čím více pečuješ o sebe, tím více máš co dát ostatním. — Robin Sharma",
+  "Každé ráno se rodíme znovu. Na dnešním dni záleží nejvíc. — Buddha",
+  "Nestěžuj si na věci, které kontroluješ. Změň je.",
+  "Spánek je nejlepší meditace. — Dalai Lama",
+  "Příroda nepospíchá — a přesto vše dosáhne. — Lao-c'",
+  "Jedinou osobou, se kterou bys měl soupeřit, jsi ty sám od včerejška.",
+  "Vděčnost mění to, co máme, na dost. — Melody Beattie",
+  "Na konci každého dne se zeptej: Udělal jsem dnes pro sebe vše, co jsem mohl?"
+];
+
+const DEFAULT_HABITS = [
+  {id:'h1',icon:'moon',name:'Spánek',type:'positive',inputType:'rating',desc:'Kvalita spánku'},
+  {id:'h2',icon:'apple',name:'Výživa',type:'positive',inputType:'rating',desc:'Porce ovoce a zeleniny'},
+  {id:'h3',icon:'activity',name:'Pohyb',type:'positive',inputType:'boolean',desc:'Sport nebo fyzická aktivita'},
+  {id:'h4',icon:'book-open',name:'Četba',type:'positive',inputType:'boolean',desc:'Alespoň 30 minut'},
+  {id:'h5',icon:'palette',name:'Kreativita & učení',type:'positive',inputType:'boolean',desc:'Něco nového nebo tvůrčího'},
+  {id:'h6',icon:'leaf',name:'Čas pro sebe',type:'positive',inputType:'boolean',desc:'Odpočinek, vědomý klid'},
+  {id:'h7',icon:'smile',name:'Nálada dne',type:'positive',inputType:'rating',desc:'Celkové rozpoložení'},
+  {id:'h8',icon:'smartphone',name:'Sociální sítě',type:'negative',inputType:'rating',desc:'Čas na sítích a reels'},
+  {id:'h9',icon:'eye-off',name:'Nevhodný obsah',type:'negative',inputType:'boolean',desc:'Podlehl/a jsem?'},
+];
+
+let habits = [];
+let records = {};
+let currentDate = todayStr();
+let currentPage = 'today';
+let statsFilter = '__all__';
+let statsMode = 'month';
+let openNotes = new Set();
+
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function parseDate(s){ const p=s.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+function addDays(s,n){ const d=parseDate(s); d.setDate(d.getDate()+n); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function formatDate(s){ const d=parseDate(s); const days=['Ne','Po','Út','St','Čt','Pá','So']; const months=['ledna','února','března','dubna','května','června','července','srpna','září','října','listopadu','prosince']; return `${days[d.getDay()]} ${d.getDate()}. ${months[d.getMonth()]}`; }
+function uid(){ return 'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function getDayOfYear(){
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const diff = now - start;
+  return Math.floor(diff / 86400000);
+}
+
+function getGreeting(){
+  const h = new Date().getHours();
+  if(h>=5 && h<=11) return 'Dobré ráno';
+  if(h>=12 && h<=17) return 'Dobré odpoledne';
+  if(h>=18 && h<=23) return 'Dobrý večer';
+  return 'Dobrou noc';
+}
+
+function save(){ localStorage.setItem('ht_habits', JSON.stringify(habits)); localStorage.setItem('ht_records', JSON.stringify(records)); }
+function load(){
+  const h = localStorage.getItem('ht_habits');
+  const r = localStorage.getItem('ht_records');
+  if(h){
+    habits = JSON.parse(h);
+    const emojiToIcon = {'😴':'moon','🥦':'apple','🏃':'activity','📖':'book-open','🎨':'palette','🧘':'leaf','😊':'smile','📱':'smartphone','🔞':'eye-off','💪':'dumbbell','🧠':'brain','💧':'droplets','🎯':'target','✍️':'pen-tool','🎵':'music','🧹':'sparkles','🍺':'wine','🎮':'gamepad-2','🍔':'utensils','☕':'coffee'};
+    habits.forEach(h=>{
+      if(h.emoji && !h.icon){
+        h.icon = emojiToIcon[h.emoji] || 'target';
+        delete h.emoji;
+      }
+    });
+    save();
+  } else {
+    habits = DEFAULT_HABITS.map(x=>({...x}));
+  }
+  records = r ? JSON.parse(r) : {};
+}
+
+function getRecord(date, habitId){
+  if(!records[date]) return null;
+  return records[date][habitId] || null;
+}
+function setRecord(date, habitId, value){
+  if(!records[date]) records[date] = {};
+  records[date][habitId] = value;
+  save();
+}
+
+function isCompleted(habit, rec){
+  if(!rec) return false;
+  if(habit.inputType === 'boolean') return rec.done === true;
+  if(habit.inputType === 'rating') return rec.rating > 0;
+  return false;
+}
+
+function getRatingValue(habit, rec){
+  if(!rec) return 0;
+  if(habit.inputType === 'rating') return rec.rating || 0;
+  if(habit.inputType === 'boolean') return rec.done ? 1 : 0;
+  return 0;
+}
+
+// Fixed streak: start from yesterday if today not yet completed
+function getStreak(habitId){
+  const h = habits.find(x=>x.id===habitId);
+  if(!h) return 0;
+  let streak = 0;
+  const today = todayStr();
+  const todayRec = getRecord(today, habitId);
+  const todayDone = isCompleted(h, todayRec);
+
+  let d = todayDone ? today : addDays(today, -1);
+  while(true){
+    const rec = getRecord(d, habitId);
+    if(isCompleted(h, rec)) streak++;
+    else break;
+    d = addDays(d, -1);
+  }
+  return streak;
+}
+
+function getWeeklyAvg(habitId){
+  const h = habits.find(x=>x.id===habitId);
+  if(!h) return '–';
+  const today = todayStr();
+  let sum = 0, count = 0;
+  for(let i=0;i<7;i++){
+    const d = addDays(today, -i);
+    const rec = getRecord(d, habitId);
+    const val = getRatingValue(h, rec);
+    if(val > 0){ sum += val; count++; }
+  }
+  return count > 0 ? (sum/count).toFixed(1) : '–';
+}
+
+function getDayScore(date){
+  let score = 0;
+  habits.forEach(h => {
+    const rec = getRecord(date, h.id);
+    const done = isCompleted(h, rec);
+    if(h.type === 'positive' && done) score++;
+    if(h.type === 'negative' && done) score--;
+  });
+  return score;
+}
+
+function ic(name){ return `<i data-lucide="${name}"></i>`; }
+
+const main = document.getElementById('mainContent');
+const dateLabel = document.getElementById('dateLabel');
+
+function refreshIcons(){
+  try{ lucide.createIcons(); }catch(e){}
+}
+
+function render(){
+  dateLabel.textContent = currentDate === todayStr() ? 'Dnes' : formatDate(currentDate);
+  document.getElementById('nextDay').style.opacity = currentDate >= todayStr() ? '.3' : '1';
+  if(currentPage === 'today') renderToday();
+  else if(currentPage === 'stats') renderStats();
+  else if(currentPage === 'manage') renderManage();
+  refreshIcons();
+}
+
+function renderToday(){
+  const score = getDayScore(currentDate);
+  const posHabits = habits.filter(h=>h.type==='positive');
+  const negHabits = habits.filter(h=>h.type==='negative');
+  const maxScore = posHabits.length;
+  const today = todayStr();
+
+  let html = '';
+
+  // Welcome card (only for today)
+  if(currentDate === today){
+    const quoteIdx = getDayOfYear() % QUOTES.length;
+    const raw = QUOTES[quoteIdx];
+    const dashMatch = raw.match(/^([\s\S]+)\s\u2014\s([^\u2014]+)$/);
+    let quoteText, authorText;
+    if(dashMatch){
+      quoteText = dashMatch[1];
+      authorText = dashMatch[2];
+    } else {
+      quoteText = raw;
+      authorText = '';
+    }
+    html += `<div class="welcome-card">
+      <div class="welcome-quote">\u201E${quoteText}\u201C</div>
+      ${authorText ? `<div class="welcome-author">\u2014 ${authorText}</div>` : ''}
+    </div>`;
+  }
+
+  html += `<div class="score-card"><div class="score">${score} / ${maxScore}</div><div class="label">Skóre dne</div></div>`;
+
+  // Yesterday banner
+  if(currentDate === today){
+    const yesterday = addDays(today, -1);
+    if(!records[yesterday] || Object.keys(records[yesterday]).length === 0){
+      html += `<div class="yesterday-banner">
+        ${ic('alert-circle')}
+        <span class="yb-text">Včera jsi nezaznamenal žádné návyky. Chceš doplnit?</span>
+        <button class="yb-btn" id="goYesterday">Doplnit</button>
+      </div>`;
+    }
+  }
+
+  if(posHabits.length){
+    html += `<div class="section-title">${ic('circle-check')} Pozitivní návyky</div>`;
+    posHabits.forEach(h => { html += renderHabitItem(h); });
+  }
+  if(negHabits.length){
+    html += `<div class="section-title">${ic('ban')} Zlozvyky k vytěsnění</div>`;
+    negHabits.forEach(h => { html += renderHabitItem(h); });
+  }
+  main.innerHTML = html;
+  bindHabitEvents();
+
+  // Yesterday button
+  const goBtn = document.getElementById('goYesterday');
+  if(goBtn){
+    goBtn.addEventListener('click', ()=>{
+      currentDate = addDays(todayStr(), -1);
+      render();
+    });
+  }
+}
+
+function renderHabitItem(h){
+  const rec = getRecord(currentDate, h.id) || {};
+  const done = isCompleted(h, rec);
+  const isNeg = h.type === 'negative';
+  let cls = 'habit-item';
+  if(done) cls += ' completed';
+  if(isNeg) cls += ' negative';
+
+  let ctrl = '';
+  if(h.inputType === 'boolean'){
+    ctrl = `<button class="toggle${done?' on':''}${isNeg?' neg':''}" data-id="${h.id}" data-type="bool"></button>`;
+  } else {
+    const rating = rec.rating || 0;
+    ctrl = `<div class="rating">${[1,2,3,4,5].map(n=>`<button class="${n<=rating?'active':''}${isNeg?' neg':''}" data-id="${h.id}" data-type="rate" data-val="${n}">${n}</button>`).join('')}</div>`;
+  }
+
+  let badgeHtml = '';
+  if(h.inputType === 'boolean'){
+    const streak = getStreak(h.id);
+    if(streak > 0) badgeHtml = `<span class="streak-badge fire">${ic('flame')} ${streak} ${streak===1?'den':streak<5?'dny':'dní'}</span>`;
+  } else {
+    const avg = getWeeklyAvg(h.id);
+    if(avg !== '–') badgeHtml = `<span class="streak-badge avg">${ic('trending-up')} ${avg} / 5 tento týden</span>`;
+  }
+
+  const hasNote = rec.note && rec.note.trim().length > 0;
+  const noteOpen = openNotes.has(h.id);
+
+  let noteHtml = '';
+  if(noteOpen || hasNote){
+    noteHtml = `<textarea class="habit-note" data-note-id="${h.id}" placeholder="Poznámka...">${rec.note||''}</textarea>`;
+  }
+
+  return `<div class="${cls}">
+    <div class="habit-icon">${ic(h.icon||'target')}</div>
+    <div class="info">
+      <div class="name-row">
+        <span class="name">${h.name}</span>
+        <button class="note-toggle${hasNote?' has-note':''}" data-note-toggle="${h.id}" title="Poznámka">${ic('pencil')}</button>
+      </div>
+      <div class="streak">${h.desc} ${badgeHtml}</div>
+      ${h.inputType==='rating'?ctrl:''}
+      ${noteHtml}
+    </div>
+    <div class="ctrl-wrap">
+      ${h.inputType==='boolean'?ctrl:''}
+    </div>
+  </div>`;
+}
+
+function bindHabitEvents(){
+  // Toggle (boolean)
+  main.querySelectorAll('.toggle').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      if(navigator.vibrate) navigator.vibrate(10);
+      const id = this.dataset.id;
+      const rec = getRecord(currentDate, id) || {};
+      rec.done = !rec.done;
+      setRecord(currentDate, id, rec);
+      render();
+    });
+  });
+  // Rating
+  main.querySelectorAll('[data-type="rate"]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      if(navigator.vibrate) navigator.vibrate(6);
+      const id = this.dataset.id;
+      const val = +this.dataset.val;
+      const rec = getRecord(currentDate, id) || {};
+      rec.rating = rec.rating === val ? 0 : val;
+      setRecord(currentDate, id, rec);
+      render();
+    });
+  });
+  // Note toggle
+  main.querySelectorAll('[data-note-toggle]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const id = this.dataset.noteToggle;
+      if(openNotes.has(id)) openNotes.delete(id);
+      else openNotes.add(id);
+      render();
+    });
+  });
+  // Note save
+  main.querySelectorAll('.habit-note').forEach(ta=>{
+    ta.addEventListener('input', function(){
+      const id = this.dataset.noteId;
+      const rec = getRecord(currentDate, id) || {};
+      rec.note = this.value;
+      setRecord(currentDate, id, rec);
+    });
+  });
+}
+
+// Stats
+function renderStats(){
+  let html = `<div class="stat-tabs">
+    <button ${statsMode==='week'?'class="active"':''} data-stat="week">Týden</button>
+    <button ${statsMode==='month'?'class="active"':''} data-stat="month">Měsíc</button>
+  </div>`;
+
+  const totalDays = Object.keys(records).length;
+  const avgScore = totalDays > 0 ? (Object.keys(records).reduce((s,d)=>s+getDayScore(d),0)/totalDays).toFixed(1) : '–';
+  const bestStreak = Math.max(0,...habits.filter(h=>h.inputType==='boolean').map(h=>getStreak(h.id)));
+
+  html += `<div class="stat-row">
+    <div class="stat-box"><div class="val">${totalDays}</div><div class="lbl">Zaznamenaných dní</div></div>
+    <div class="stat-box"><div class="val">${avgScore}</div><div class="lbl">Průměrné skóre</div></div>
+    <div class="stat-box"><div class="val">${ic('flame')} ${bestStreak}</div><div class="lbl">Nejdelší streak</div></div>
+  </div>`;
+
+  html += `<div class="filter-bar">
+    <button class="filter-pill${statsFilter==='__all__'?' active':''}" data-filter="__all__">${ic('bar-chart-3')} Celkové</button>`;
+  habits.forEach(h=>{
+    html += `<button class="filter-pill${statsFilter===h.id?' active':''}" data-filter="${h.id}">${ic(h.icon||'target')} ${h.name}</button>`;
+  });
+  html += `</div>`;
+
+  html += `<div id="heatmapArea"></div>`;
+
+  main.innerHTML = html;
+  renderHeatmaps();
+
+  main.querySelectorAll('.stat-tabs button').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      main.querySelectorAll('.stat-tabs button').forEach(b=>b.classList.remove('active'));
+      this.classList.add('active');
+      statsMode = this.dataset.stat;
+      renderHeatmaps();
+      refreshIcons();
+    });
+  });
+
+  main.querySelectorAll('.filter-pill').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      main.querySelectorAll('.filter-pill').forEach(b=>b.classList.remove('active'));
+      this.classList.add('active');
+      statsFilter = this.dataset.filter;
+      renderHeatmaps();
+      refreshIcons();
+    });
+  });
+}
+
+function renderHeatmaps(){
+  const area = document.getElementById('heatmapArea');
+  if(!area) return;
+  let habitsToShow;
+  if(statsFilter === '__all__') habitsToShow = [null];
+  else habitsToShow = habits.filter(h=>h.id===statsFilter);
+
+  let html = '';
+  habitsToShow.forEach(h => { html += renderSingleHeatmap(h, statsMode); });
+  area.innerHTML = html;
+}
+
+function renderSingleHeatmap(habit, mode){
+  const today = todayStr();
+  let days = [];
+  if(mode === 'week'){
+    for(let i=6;i>=0;i--) days.push(addDays(today,-i));
+  } else {
+    const start = addDays(today, -34);
+    const startD = parseDate(start);
+    const dow = (startD.getDay()+6)%7;
+    for(let i=0;i<dow;i++) days.push(null);
+    for(let i=34;i>=0;i--) days.push(addDays(today,-i));
+  }
+
+  const isOverall = habit === null;
+  const isNeg = habit && habit.type === 'negative';
+  const titleIcon = isOverall ? 'bar-chart-3' : (habit.icon||'target');
+  const titleText = isOverall ? 'Celkové skóre' : habit.name;
+
+  let subtitle = '';
+  if(!isOverall){
+    if(habit.inputType === 'boolean'){
+      const s = getStreak(habit.id);
+      subtitle = s > 0 ? `${s} ${s===1?'den':s<5?'dny':'dní'} v řadě` : 'Žádná série';
+    } else {
+      const avg = getWeeklyAvg(habit.id);
+      subtitle = avg !== '–' ? `${avg} / 5 tento týden` : '–';
+    }
+  }
+
+  let html = `<div class="heatmap-container">
+    <div class="heatmap-header">
+      <span class="hm-icon">${ic(titleIcon)}</span>
+      <span class="name">${titleText}</span>
+      <span class="avg">${subtitle}</span>
+    </div>
+    <div class="heatmap-day-labels">${['Po','Út','St','Čt','Pá','So','Ne'].map(d=>`<div class="heatmap-day-label">${d}</div>`).join('')}</div>
+    <div class="heatmap">`;
+
+  const maxPos = habits.filter(h=>h.type==='positive').length || 1;
+
+  days.forEach(d => {
+    if(!d){ html += `<div class="heatmap-cell empty"></div>`; return; }
+    const dd = parseDate(d).getDate();
+    const isToday = d === today;
+    let lvl = 0;
+    let negClass = '';
+
+    if(isOverall){
+      const score = getDayScore(d);
+      if(records[d]){
+        const pct = Math.max(0, score) / maxPos;
+        if(pct > 0) lvl=1; if(pct >= .3) lvl=2; if(pct >= .5) lvl=3; if(pct >= .75) lvl=4; if(pct >= .95) lvl=5;
+      }
+    } else {
+      const rec = getRecord(d, habit.id);
+      if(rec){
+        if(habit.inputType === 'boolean') lvl = isCompleted(habit, rec) ? 5 : 0;
+        else lvl = rec.rating || 0;
+        if(isNeg && lvl > 0) negClass = 'neg-';
+      }
+    }
+    html += `<div class="heatmap-cell ${negClass}l${lvl}${isToday?' today':''}">${dd}</div>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+// Manage
+function renderManage(){
+  let html = `<div class="section-title">${ic('settings')} Správa návyků</div>`;
+
+  html += `<div class="add-form" id="addForm">
+    <div class="icon-pick" id="iconPick">${ICONS.map((name,i)=>`<button data-icon="${name}"${i===0?' class="active"':''}>${ic(name)}</button>`).join('')}</div>
+    <input type="text" id="newName" placeholder="Název návyku" maxlength="40">
+    <select id="newType"><option value="positive">Pozitivní</option><option value="negative">Negativní</option></select>
+    <select id="newInput"><option value="boolean">Ano / Ne</option><option value="rating">Hodnocení 1–5</option></select>
+    <input type="text" id="newDesc" placeholder="Popis (volitelné)" maxlength="60">
+    <button class="btn btn-primary" id="addHabitBtn">Přidat návyk</button>
+  </div>`;
+
+  const posH = habits.filter(h=>h.type==='positive');
+  const negH = habits.filter(h=>h.type==='negative');
+
+  if(posH.length){
+    html += `<div class="section-title">${ic('circle-check')} Pozitivní</div>`;
+    posH.forEach(h=>{ html += manageItem(h); });
+  }
+  if(negH.length){
+    html += `<div class="section-title">${ic('ban')} Negativní</div>`;
+    negH.forEach(h=>{ html += manageItem(h); });
+  }
+
+  // Backup section
+  html += `<div class="section-title">${ic('hard-drive-download')} Záloha dat</div>`;
+  html += `<div class="backup-section">
+    <button class="btn btn-secondary" id="exportBtn">${ic('download')} Exportovat</button>
+    <button class="btn btn-secondary" id="importBtn">${ic('upload')} Importovat</button>
+  </div>`;
+
+  main.innerHTML = html;
+  bindManageEvents();
+}
+
+function manageItem(h){
+  return `<div class="habit-manage">
+    <div class="manage-icon">${ic(h.icon||'target')}</div>
+    <div class="info"><div class="name">${h.name}</div><div class="meta">${h.desc||''} · ${h.inputType==='rating'?'Hodnocení 1–5':'Ano/Ne'}</div></div>
+    <button class="btn btn-danger" data-delete="${h.id}">Smazat</button>
+  </div>`;
+}
+
+function bindManageEvents(){
+  const iconPick = document.getElementById('iconPick');
+  if(iconPick){
+    iconPick.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', function(){
+        iconPick.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        this.classList.add('active');
+      });
+    });
+  }
+
+  const addBtn = document.getElementById('addHabitBtn');
+  if(addBtn){
+    addBtn.addEventListener('click', ()=>{
+      const name = document.getElementById('newName').value.trim();
+      if(!name) return;
+      const icon = iconPick.querySelector('.active')?.dataset.icon || 'target';
+      const type = document.getElementById('newType').value;
+      const inputType = document.getElementById('newInput').value;
+      const desc = document.getElementById('newDesc').value.trim();
+      habits.push({id:uid(), icon, name, type, inputType, desc});
+      save();
+      render();
+    });
+  }
+
+  main.querySelectorAll('[data-delete]').forEach(btn=>{
+    btn.addEventListener('click', function(){
+      const id = this.dataset.delete;
+      const h = habits.find(x=>x.id===id);
+      showConfirm(`Smazat „${h?.name}"?`, 'Tuto akci nelze vrátit zpět.', ()=>{
+        habits = habits.filter(x=>x.id!==id);
+        save();
+        render();
+      });
+    });
+  });
+
+  // Export
+  const exportBtn = document.getElementById('exportBtn');
+  if(exportBtn){
+    exportBtn.addEventListener('click', ()=>{
+      const data = { habits, records, exportDate: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `habit-tracker-backup-${todayStr()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Import
+  const importBtn = document.getElementById('importBtn');
+  const importFile = document.getElementById('importFile');
+  if(importBtn && importFile){
+    importBtn.addEventListener('click', ()=>{
+      importFile.click();
+    });
+    importFile.addEventListener('change', function(){
+      const file = this.files[0];
+      if(!file) return;
+      showConfirm('Importovat data?', 'Tato akce přepíše všechna stávající data. Chcete pokračovat?', ()=>{
+        const reader = new FileReader();
+        reader.onload = function(e){
+          try{
+            const data = JSON.parse(e.target.result);
+            if(data.habits) habits = data.habits;
+            if(data.records) records = data.records;
+            save();
+            render();
+          }catch(err){
+            alert('Chyba při čtení souboru. Zkontrolujte formát JSON.');
+          }
+        };
+        reader.readAsText(file);
+      });
+      this.value = '';
+    });
+  }
+}
+
+function showConfirm(title, msg, onOk){
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = `<div class="dialog"><h3>${title}</h3><p>${msg}</p><div class="dialog-btns"><button class="btn btn-small" style="background:var(--card2);color:var(--text)" id="dlgCancel">Zrušit</button><button class="btn btn-small" style="background:var(--accent);color:#fff" id="dlgOk">Potvrdit</button></div></div>`;
+  document.body.appendChild(ov);
+  ov.querySelector('#dlgCancel').onclick = ()=>ov.remove();
+  ov.querySelector('#dlgOk').onclick = ()=>{ov.remove(); onOk();};
+  ov.addEventListener('click', e=>{if(e.target===ov) ov.remove();});
+  refreshIcons();
+}
+
+// Navigation
+document.querySelectorAll('.nav button').forEach(btn=>{
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+    this.classList.add('active');
+    currentPage = this.dataset.page;
+    render();
+  });
+});
+
+document.getElementById('prevDay').addEventListener('click', ()=>{ currentDate = addDays(currentDate, -1); render(); });
+document.getElementById('nextDay').addEventListener('click', ()=>{ if(currentDate < todayStr()){ currentDate = addDays(currentDate, 1); render(); }});
+
+load();
+render();
+refreshIcons();
+
+})();
+</script>
+</body>
+</html>
