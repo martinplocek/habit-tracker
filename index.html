@@ -353,20 +353,22 @@ function save(){ localStorage.setItem('ht_habits', JSON.stringify(habits)); loca
 function load(){
   const h = localStorage.getItem('ht_habits');
   const r = localStorage.getItem('ht_records');
+  records = r ? JSON.parse(r) : {};
   if(h){
     habits = JSON.parse(h);
     const emojiToIcon = {'😴':'moon','🥦':'apple','🏃':'activity','📖':'book-open','🎨':'palette','🧘':'leaf','😊':'smile','📱':'smartphone','🔞':'eye-off','💪':'dumbbell','🧠':'brain','💧':'droplets','🎯':'target','✍️':'pen-tool','🎵':'music','🧹':'sparkles','🍺':'wine','🎮':'gamepad-2','🍔':'utensils','☕':'coffee'};
+    let migrated = false;
     habits.forEach(h=>{
       if(h.emoji && !h.icon){
         h.icon = emojiToIcon[h.emoji] || 'target';
         delete h.emoji;
+        migrated = true;
       }
     });
-    save();
+    if(migrated) save();
   } else {
     habits = DEFAULT_HABITS.map(x=>({...x}));
   }
-  records = r ? JSON.parse(r) : {};
 }
 
 function getRecord(date, habitId){
