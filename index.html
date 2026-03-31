@@ -100,8 +100,11 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 
 /* Score card */
 .score-card{text-align:center;padding:24px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:var(--radius);margin-bottom:16px;box-shadow:var(--shadow);color:#fff}
-.score-card .score{font-size:3rem;font-weight:500}
+.score-card .score{font-size:3rem;font-weight:500;display:flex;align-items:baseline;justify-content:center;gap:4px}
+.score-card .score-max{font-size:1.4rem;opacity:.7}
 .score-card .label{font-size:.85rem;margin-top:4px;opacity:.85}
+.score-bar-bg{width:80%;margin:12px auto 0;height:6px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden}
+.score-bar{height:100%;border-radius:3px;transition:width .6s ease;width:0}
 
 /* Section title */
 .section-title{font-size:.8rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--text2);margin:20px 0 10px;font-weight:500;display:flex;align-items:center;gap:6px}
@@ -143,6 +146,29 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;min-height
 .heatmap-cell.neg-l3{background:#8a3828;color:#fff}
 .heatmap-cell.neg-l4{background:#b04030;color:#fff}
 .heatmap-cell.neg-l5{background:#d04838;color:#fff}
+}
+
+/* Weekly bar chart */
+.week-bars{display:flex;gap:4px;margin-bottom:16px}
+.week-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;border-radius:10px}
+.week-col.is-today{background:var(--accent-light)}
+.week-col .wc-day{font-size:.7rem;color:var(--text2)}
+.week-col .wc-date{font-size:.8rem;color:var(--text)}
+.week-col .wc-bar-wrap{width:100%;height:80px;background:var(--bg2);border-radius:6px;position:relative;overflow:hidden}
+.week-col .wc-bar{position:absolute;bottom:0;left:0;width:100%;border-radius:6px;transition:height .5s ease}
+.week-col .wc-score{font-size:.72rem;font-weight:500;color:var(--text2)}
+.week-col .wc-score.no-data{color:var(--text3)}
+.week-col.is-today .wc-score{color:var(--accent);font-weight:600}
+
+/* Monthly overall cells */
+.heatmap-cell.ov-low{background:var(--negative);opacity:.4;color:#fff}
+.heatmap-cell.ov-mid{background:var(--warning);opacity:.6;color:#fff}
+.heatmap-cell.ov-high{background:var(--success);opacity:.7;color:#fff}
+.heatmap-cell.ov-full{background:var(--success);opacity:1;color:#fff;font-weight:600}
+@media(prefers-color-scheme:dark){
+.heatmap-cell.ov-low{opacity:.5}
+.heatmap-cell.ov-mid{opacity:.7}
+.heatmap-cell.ov-high{opacity:.8}
 }
 
 /* Filter pills */
@@ -430,13 +456,24 @@ function getWeeklyAvg(habitId){
 
 function getDayScore(date){
   let score = 0;
+  const max = habits.filter(h=>h.type==='positive').length;
   habits.forEach(h => {
     const rec = getRecord(date, h.id);
-    const done = isCompleted(h, rec);
-    if(h.type === 'positive' && done) score++;
-    if(h.type === 'negative' && done) score--;
+    if(h.type === 'positive'){
+      if(h.inputType === 'boolean'){
+        if(rec && rec.done) score += 1;
+      } else {
+        score += (rec && rec.rating ? rec.rating / 5 : 0);
+      }
+    } else {
+      if(h.inputType === 'boolean'){
+        if(rec && rec.done) score -= 1;
+      } else {
+        score -= (rec && rec.rating ? rec.rating / 5 : 0);
+      }
+    }
   });
-  return score;
+  return { score: Math.max(0, Math.round(score * 10) / 10), max };
 }
 
 function ic(name){ return `<i data-lucide="${name}"></i>`; }
@@ -458,10 +495,9 @@ function render(){
 }
 
 function renderToday(){
-  const score = getDayScore(currentDate);
+  const {score, max} = getDayScore(currentDate);
   const posHabits = habits.filter(h=>h.type==='positive');
   const negHabits = habits.filter(h=>h.type==='negative');
-  const maxScore = posHabits.length;
   const today = todayStr();
 
   let html = '';
@@ -485,7 +521,9 @@ function renderToday(){
     </div>`;
   }
 
-  html += `<div class="score-card"><div class="score">${score} / ${maxScore}</div><div class="label">Skóre dne</div></div>`;
+  const pct = max > 0 ? Math.round((score / max) * 100) : 0;
+  const barColor = pct <= 40 ? 'var(--negative)' : pct <= 70 ? 'var(--warning)' : 'var(--success)';
+  html += `<div class="score-card"><div class="score">${score.toFixed(1)}<span class="score-max">/ ${max}</span></div><div class="score-bar-bg"><div class="score-bar" style="width:${pct}%;background:${barColor}"></div></div><div class="label">Skóre dne</div></div>`;
 
   // Yesterday banner
   if(currentDate === today){
@@ -622,7 +660,7 @@ function renderStats(){
   </div>`;
 
   const totalDays = Object.keys(records).length;
-  const avgScore = totalDays > 0 ? (Object.keys(records).reduce((s,d)=>s+getDayScore(d),0)/totalDays).toFixed(1) : '–';
+  const avgScore = totalDays > 0 ? (Object.keys(records).reduce((s,d)=>s+getDayScore(d).score,0)/totalDays).toFixed(1) : '–';
   const bestStreak = Math.max(0,...habits.filter(h=>h.inputType==='boolean').map(h=>getStreak(h.id)));
 
   html += `<div class="stat-row">
@@ -667,16 +705,94 @@ function renderStats(){
 function renderHeatmaps(){
   const area = document.getElementById('heatmapArea');
   if(!area) return;
-  let habitsToShow;
-  if(statsFilter === '__all__') habitsToShow = [null];
-  else habitsToShow = habits.filter(h=>h.id===statsFilter);
 
-  let html = '';
-  habitsToShow.forEach(h => { html += renderSingleHeatmap(h, statsMode); });
-  area.innerHTML = html;
+  if(statsFilter === '__all__'){
+    if(statsMode === 'week') area.innerHTML = renderOverallWeek();
+    else area.innerHTML = renderOverallMonth();
+  } else {
+    let habitsToShow = habits.filter(h=>h.id===statsFilter);
+    let html = '';
+    habitsToShow.forEach(h => { html += renderHabitHeatmap(h, statsMode); });
+    area.innerHTML = html;
+  }
 }
 
-function renderSingleHeatmap(habit, mode){
+// Weekly bar chart for overall score
+function renderOverallWeek(){
+  const today = todayStr();
+  const dayNames = ['Ne','Po','Út','St','Čt','Pá','So'];
+  let html = '<div class="week-bars">';
+  for(let i=6;i>=0;i--){
+    const d = addDays(today, -i);
+    const dd = parseDate(d);
+    const dayLabel = dayNames[dd.getDay()];
+    const dateNum = dd.getDate();
+    const isToday = d === today;
+    const {score, max} = getDayScore(d);
+    const hasData = !!records[d] && Object.keys(records[d]).length > 0;
+    const pct = (hasData && max > 0) ? Math.round((score / max) * 100) : 0;
+    let barColor = 'transparent';
+    if(hasData && pct > 0){
+      if(pct <= 40) barColor = 'var(--negative);opacity:.7';
+      else if(pct <= 70) barColor = 'var(--warning);opacity:.8';
+      else barColor = 'var(--success)';
+    }
+    const scoreText = hasData ? score.toFixed(1) : '–';
+    const scoreClass = hasData ? '' : ' no-data';
+    html += `<div class="week-col${isToday?' is-today':''}">
+      <span class="wc-day">${dayLabel}</span>
+      <span class="wc-date">${dateNum}</span>
+      <div class="wc-bar-wrap"><div class="wc-bar" style="height:${pct}%;background:${barColor}"></div></div>
+      <span class="wc-score${scoreClass}">${scoreText}</span>
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// Monthly grid for overall score
+function renderOverallMonth(){
+  const today = todayStr();
+  const start = addDays(today, -34);
+  const startD = parseDate(start);
+  const dow = (startD.getDay()+6)%7;
+  let days = [];
+  for(let i=0;i<dow;i++) days.push(null);
+  for(let i=34;i>=0;i--) days.push(addDays(today,-i));
+
+  let html = `<div class="heatmap-container">
+    <div class="heatmap-header">
+      <span class="hm-icon">${ic('bar-chart-3')}</span>
+      <span class="name">Celkové skóre</span>
+      <span class="avg"></span>
+    </div>
+    <div class="heatmap-day-labels">${['Po','Út','St','Čt','Pá','So','Ne'].map(d=>`<div class="heatmap-day-label">${d}</div>`).join('')}</div>
+    <div class="heatmap">`;
+
+  days.forEach(d => {
+    if(!d){ html += `<div class="heatmap-cell empty"></div>`; return; }
+    const dd = parseDate(d).getDate();
+    const isToday = d === today;
+    const {score, max} = getDayScore(d);
+    const hasData = !!records[d] && Object.keys(records[d]).length > 0;
+    let cls = 'heatmap-cell';
+    if(hasData && max > 0){
+      const pct = Math.round((score / max) * 100);
+      if(pct >= 100) cls += ' ov-full';
+      else if(pct >= 71) cls += ' ov-high';
+      else if(pct >= 41) cls += ' ov-mid';
+      else if(pct >= 1) cls += ' ov-low';
+    }
+    if(isToday) cls += ' today';
+    html += `<div class="${cls}">${dd}</div>`;
+  });
+
+  html += `</div></div>`;
+  return html;
+}
+
+// Heatmap for a single habit (existing logic preserved)
+function renderHabitHeatmap(habit, mode){
   const today = todayStr();
   let days = [];
   if(mode === 'week'){
@@ -689,32 +805,24 @@ function renderSingleHeatmap(habit, mode){
     for(let i=34;i>=0;i--) days.push(addDays(today,-i));
   }
 
-  const isOverall = habit === null;
-  const isNeg = habit && habit.type === 'negative';
-  const titleIcon = isOverall ? 'bar-chart-3' : (habit.icon||'target');
-  const titleText = isOverall ? 'Celkové skóre' : habit.name;
-
+  const isNeg = habit.type === 'negative';
   let subtitle = '';
-  if(!isOverall){
-    if(habit.inputType === 'boolean'){
-      const s = getStreak(habit.id);
-      subtitle = s > 0 ? `${s} ${s===1?'den':s<5?'dny':'dní'} v řadě` : 'Žádná série';
-    } else {
-      const avg = getWeeklyAvg(habit.id);
-      subtitle = avg !== '–' ? `${avg} / 5 tento týden` : '–';
-    }
+  if(habit.inputType === 'boolean'){
+    const s = getStreak(habit.id);
+    subtitle = s > 0 ? `${s} ${s===1?'den':s<5?'dny':'dní'} v řadě` : 'Žádná série';
+  } else {
+    const avg = getWeeklyAvg(habit.id);
+    subtitle = avg !== '–' ? `${avg} / 5 tento týden` : '–';
   }
 
   let html = `<div class="heatmap-container">
     <div class="heatmap-header">
-      <span class="hm-icon">${ic(titleIcon)}</span>
-      <span class="name">${titleText}</span>
+      <span class="hm-icon">${ic(habit.icon||'target')}</span>
+      <span class="name">${habit.name}</span>
       <span class="avg">${subtitle}</span>
     </div>
     <div class="heatmap-day-labels">${['Po','Út','St','Čt','Pá','So','Ne'].map(d=>`<div class="heatmap-day-label">${d}</div>`).join('')}</div>
     <div class="heatmap">`;
-
-  const maxPos = habits.filter(h=>h.type==='positive').length || 1;
 
   days.forEach(d => {
     if(!d){ html += `<div class="heatmap-cell empty"></div>`; return; }
@@ -722,20 +830,11 @@ function renderSingleHeatmap(habit, mode){
     const isToday = d === today;
     let lvl = 0;
     let negClass = '';
-
-    if(isOverall){
-      const score = getDayScore(d);
-      if(records[d]){
-        const pct = Math.max(0, score) / maxPos;
-        if(pct > 0) lvl=1; if(pct >= .3) lvl=2; if(pct >= .5) lvl=3; if(pct >= .75) lvl=4; if(pct >= .95) lvl=5;
-      }
-    } else {
-      const rec = getRecord(d, habit.id);
-      if(rec){
-        if(habit.inputType === 'boolean') lvl = isCompleted(habit, rec) ? 5 : 0;
-        else lvl = rec.rating || 0;
-        if(isNeg && lvl > 0) negClass = 'neg-';
-      }
+    const rec = getRecord(d, habit.id);
+    if(rec){
+      if(habit.inputType === 'boolean') lvl = isCompleted(habit, rec) ? 5 : 0;
+      else lvl = rec.rating || 0;
+      if(isNeg && lvl > 0) negClass = 'neg-';
     }
     html += `<div class="heatmap-cell ${negClass}l${lvl}${isToday?' today':''}">${dd}</div>`;
   });
